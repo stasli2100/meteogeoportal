@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Геопортал практика</title>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Подключаем TimeDimension -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.1/dist/leaflet.timedimension.control.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/iso8601-js-period@0.2.1/iso8601.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.1/dist/leaflet.timedimension.min.js"></script>
+    <!-- Подключаем Leaflet Draw -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <!-- Подключаем Leaflet Measure -->
+    <link rel="stylesheet" href="./libs/leaflet.measure.css" />
+    <script src="./libs/leaflet.measure.js"></script>
+    <!-- Подключаем Яндекс Карты -->
+    <script src="https://api-maps.yandex.ru/2.1/?lang=ru-RU"></script>
+    <script src="./libs/Yandex.js"></script>
+	<!-- Подключаем Control Opacity -->
+	<script src="./libs/L.Control.Opacity.js"></script>
+    <link href="./libs/L.Control.Opacity.css" rel="stylesheet" />
+	<!-- Подключаем ajax -->
+	<script type="text/javascript" src="./libs/leaflet.ajax.js"></script>
+	
+	<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+	<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+	<script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster-src.js"></script>
+
+
+    <style>
+        #map {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+        }
+		
+		
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script>
+        // Создаём карту с поддержкой TimeDimension
+        var map = L.map('map', {
+            center: [46.627802, 142.814747],
+            zoom: 10,
+            timeDimension: true,
+            timeDimensionControl: true,
+            timeDimensionControlOptions: {
+                position: 'bottomleft',
+                playerOptions: {
+                    transitionTime: 1000, // Скорость анимации (1 секунда)
+                    loop: true, // Цикличное воспроизведение
+                    startOver: true
+                }
+            }
+        });
+
+        // Добавляем базовые карты
+        var layer_osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: 'OSM карта' }),
+            layer_otp = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: 'OpenTopoMap' }),
+            layer_gglh = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                attribution: 'Google Hybrid карта',
+                maxZoom: 20,
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+            }),
+            layer_yndx = new L.Yandex('map', { attribution: 'Яндекс Карта' });
+
+        var baseLayers = {
+            "OpenStreetMap": layer_osm,
+            "OpenTopoMap": layer_otp,
+            "Google Hybrid": layer_gglh,
+            "Яндекс Карта": layer_yndx
+        };
+
+		//Добавляем статичные WMS-слои (подложка)
+        var wmsUrl = "http://localhost:8080/geoserver/wms"; // URL вашего GeoServer
+
+
+//        var layer_meteost = L.tileLayer.wms(wmsUrl, {
+//            layers: 'meteo_sakh:meteostantsii',
+  //          format: 'image/png',
+    //        transparent: true,
+      //      attribution: 'GeoServer',
+		//	zIndex: 15
+        //});
+		var	layer_sakhalin = L.tileLayer.wms(wmsUrl, {
+            layers: 'meteo_sakh:ostrov_Sakhalin',
+            format: 'image/png',
+            transparent: true,
+            attribution: 'GeoServer',
+			zIndex: 15
+        });
+		var	layer_reki = L.tileLayer.wms(wmsUrl, {
+            layers: 'meteo_sakh:reki',
+            format: 'image/png',
+            transparent: true,
+            attribution: 'GeoServer',
+			zIndex: 14
+        });
+		var	layer_town = L.tileLayer.wms(wmsUrl, {
+            layers: 'meteo_sakh:place_town',
+            format: 'image/png',
+            transparent: true,
+            attribution: 'GeoServer',
+			zIndex: 14
+        });
+		var	layer_city = L.tileLayer.wms(wmsUrl, {
+            layers: 'meteo_sakh:t_place_city',
+            format: 'image/png',
+            transparent: true,
+            attribution: 'GeoServer',
+			zIndex: 14
+        });
+		
+		var overlayLayers = {
+			//"Метеостанции": layer_meteost,
+			"Границы Сахалина": layer_sakhalin,
+			"Реки": layer_reki,
+			"Южно-Сахалинск": layer_city,
+			"Населённые пункты": layer_town
+		};
+		
+        // Добавляем OpenTopoMap как начальную карту
+        
+//		layer_meteost.addTo(map);
+		layer_sakhalin.addTo(map);
+		layer_reki.addTo(map);
+		layer_town.addTo(map);
+		layer_city.addTo(map);
+		layer_gglh.addTo(map);
+		
+			
+		// URL WFS-запроса к GeoServer (замените `workspace:layer_name` на свои данные)
+		var wfsUrl = "http://localhost:8080/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature&typeName=meteo_sakh:meteostantsii&outputFormat=json&srsName=EPSG:4326";
+			
+			
+			fetch(wfsUrl)
+		.then(response => response.json())
+		.then(data => {
+			console.log("Загруженные данные:", data); // Проверяем JSON в консоли
+			if (!data.features || data.features.length === 0) {
+				console.warn("WFS-слой пуст, проверьте GeoServer!");
+				return;
+			}
+
+			let wfsLayer = L.geoJSON(data, {
+				pointToLayer: function (feature, latlng) {
+					return L.circleMarker(latlng, {
+						radius: 4,
+						fillColor: "red",
+						color: "#000",
+						weight: 1,
+						opacity: 1,
+						fillOpacity: 0.8
+					});
+				},
+				onEachFeature: function (feature, layer) {
+					layer.bindPopup("<b>Номер метеостанции:</b> " + feature.properties.nomer +
+									"<br><b>Название:</b> " + feature.properties.name);
+				}
+			}).addTo(map);
+
+			if (wfsLayer.getBounds().isValid()) {
+				map.fitBounds(wfsLayer.getBounds());
+			} else {
+				console.warn("Слой пустой или за пределами карты!");
+			}
+		})
+		.catch(error => console.error("Ошибка загрузки WFS:", error));
+
+        // Настраиваем WMS-слой с поддержкой времени
+        var wmsLayer = L.tileLayer.wms(wmsUrl, {
+            layers: 'meteo_sakh:raster_data',
+            format: 'image/png',
+            transparent: true,
+            attribution: 'GeoServer'
+        });
+
+        // Подключаем WMS-слой к TimeDimension
+        var timeLayer = L.timeDimension.layer.wms(wmsLayer, {
+            updateTimeDimension: true
+        });
+
+        timeLayer.addTo(map);
+		
+		var timeLayers = {
+			"Time Layer": timeLayer // Добавляем временной слой как наложение
+		};
+		
+        // Добавляем контроллер слоёв
+        L.control.layers(baseLayers, timeLayers, {
+			collapsed: false
+		}).addTo(map);
+
+		//Добавляем OpacityControl
+		L.control.opacity(overlayLayers, {label: 'Прозрачность'})
+			.addTo(map);
+
+        // Создаём группу для нарисованных объектов
+        var drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+
+        // Добавляем панель инструментов для рисования
+        var drawControl = new L.Control.Draw({
+            edit: {
+                featureGroup: drawnItems
+            }
+        });
+        map.addControl(drawControl);
+
+        // Добавление инструмента измерений
+        var measureControl = new L.Control.Measure({
+            primaryLengthUnit: 'meters',
+            secondaryLengthUnit: 'kilometers',
+            primaryAreaUnit: 'sqmeters',
+            secondaryAreaUnit: 'hectares',
+            activeColor: '#ff0000',
+            completedColor: '#0000ff'
+        });
+        map.addControl(measureControl);
+		
+		//Добавление легенды
+		var legendUrl = "http://localhost:8080/geoserver/wms?" +
+			"service=WMS&request=GetLegendGraphic&version=1.0.0&" +
+			"format=image/png&layer=meteo_sakh:raster_data";
+
+		var legend = L.control({ position: "bottomright" });
+
+		legend.onAdd = function () {
+			var div = L.DomUtil.create("div", "legend");
+			div.innerHTML = '<img src="' + legendUrl + '" alt="Legend">';
+			return div;
+		};
+
+		legend.addTo(map);
+
+
+        // Обработка событий рисования
+        map.on(L.Draw.Event.CREATED, function (event) {
+            var layer = event.layer;
+            drawnItems.addLayer(layer);
+        });
+
+		
+    </script>
+</body>
+</html>
